@@ -184,7 +184,7 @@ These are used to support device scanning and event-driven SDK workflows.
 
 The latest precompiled Windows executable is available from:
 
-[**GitHub Releases**](https://github.com/JamesHughes-Isomet/iCSA-iVSA_Compensation_Build_Tool/releases)
+[**GitHub Releases**](https://github.com/Isomet-Corporation/iCSA-iVSA_Compensation_Build_Tool/releases)
 
 Typical release file:
 
