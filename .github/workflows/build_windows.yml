@@ -1,0 +1,112 @@
+name: Build and Release Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate Windows version info from tag
+        shell: pwsh
+        run: |
+          $refType = "${{ github.ref_type }}"
+          $refName = "${{ github.ref_name }}"
+
+          if ($refType -eq "tag") {
+            $tag = $refName
+          } else {
+            $tag = "v0.0.0"
+          }
+
+          $version = $tag.TrimStart('v')
+          $parts = $version.Split('.')
+
+          while ($parts.Count -lt 4) {
+            $parts += "0"
+          }
+
+          $v1 = [int]$parts[0]
+          $v2 = [int]$parts[1]
+          $v3 = [int]$parts[2]
+          $v4 = [int]$parts[3]
+
+          $content = @(
+            "VSVersionInfo(",
+            "  ffi=FixedFileInfo(",
+            "    filevers=($v1, $v2, $v3, $v4),",
+            "    prodvers=($v1, $v2, $v3, $v4),",
+            "    mask=0x3f,",
+            "    flags=0x0,",
+            "    OS=0x40004,",
+            "    fileType=0x1,",
+            "    subtype=0x0,",
+            "    date=(0, 0)",
+            "  ),",
+            "  kids=[",
+            "    StringFileInfo([",
+            "      StringTable(",
+            "        '040904B0',",
+            "        [",
+            "          StringStruct('CompanyName', 'Isomet'),",
+            "          StringStruct('FileDescription', 'Compact Synthesiser Compensation Build Tool'),",
+            "          StringStruct('FileVersion', '$v1.$v2.$v3.$v4'),",
+            "          StringStruct('InternalName', 'iCSA-iVSA_Compensation_Build_Tool'),",
+            "          StringStruct('OriginalFilename', 'iCSA-iVSA_Compensation_Build_Tool.exe'),",
+            "          StringStruct('ProductName', 'iCSA-iVSA Compensation Build Tool'),",
+            "          StringStruct('ProductVersion', '$v1.$v2.$v3.$v4'),",
+            "          StringStruct('LegalCopyright', 'Copyright (C) Isomet')",
+            "        ]",
+            "      )",
+            "    ]),",
+            "    VarFileInfo([VarStruct('Translation', [1033, 1200])])",
+            "  ]",
+            ")"
+          ) -join "`r`n"
+
+          Set-Content -Path version_info.txt -Value $content -Encoding UTF8
+
+      - name: Show generated version file
+        shell: pwsh
+        run: |
+          Get-Content version_info.txt
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          pyinstaller iCSA-iVSA_Compensation_Build_Tool.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: iCSA-iVSA Compensation Build Tool
+          path: dist/iCSA-iVSA_Compensation_Build_Tool.exe
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/iCSA-iVSA_Compensation_Build_Tool.exe

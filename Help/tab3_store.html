@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Save / Store</title>
+  <link rel="stylesheet" href="css/help.css">
+</head>
+<body>
+<div class="container">
+  <h2>Save / Store</h2>
+
+  <div class="callout">
+    <b>Save LUT (.lut)</b>
+    <ul>
+      <li>Exports your current points to a .lut file via <a href="https://isomet-corporation.github.io/ims-lib/classiMS_1_1CompensationTableExporter.html#a36fae77a4c3ac64b32ebbd64e099daac"><code>CompensationTableExporter</code></a>.</li>
+      <li>Use this to version control LUTs per device/build.</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <b>Store as DEFAULT</b>
+    <ul>
+      <li>Downloads + verifies the rendered table, then stores it as the device startup default.</li>
+      <li>The timeout controls how long download/verify will wait for events.</li>
+    </ul>
+  </div>
+
+  <!-- <p class="muted">
+    If Store fails, check that the device filesystem is accessible and that no other application is using the unit.
+  </p>-->
+
+  <div class="buttons">
+    <a class="btn" href="https://isomet.com/synth_home.html">Support</a>
+  </div> 
+</div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tuning</title>
+  <link rel="stylesheet" href="css/help.css">
+</head>
+<body>
+<div class="container">
+  <h2>Tuning</h2>
+
+  <p>Select a row to apply that point as the current tone (freq/ampl/phase). The selected tone then becomes the device output.</p>
+
+  <div class="callout">
+    <b>Controls</b>
+    <ul>
+      <li><b>Stop tone</b> clears the calibration tone.</li>
+      <li><b>Amplifier</b> toggle enables/disables RF output (default OFF on startup).</li>
+      <li><b>Sync channel wipers</b> ties CH1 &amp; CH2 wiper sliders together.</li>
+      <li><b>DDS Power</b> controls the power of the DDS output.</li>
+      <li><b>Channel Wipers</b> </li>
+      <ul>
+        <li><b>Channel 1</b> controls the wiper voltage of Channel 1.</li>
+        <li><b>Channel 2</b> controls the wiper voltage of Channel 2.</li>
+      </ul>
+      <li><b>LUT Interpolation</b> determines how the points in the LUT are connected.</li>
+      <ul>
+        <li><b>Spot</b> Sets each point to its exact value. else zero</li>
+        <li><b>Step</b> holds the specified value until the next point.</li>
+        <li><b>Linear</b> connects the points with straight lines.</li>
+        <li><b>LinearExtend</b> extends the first and last points to the boundaries.</li>
+        <li><b>Cubic</b> uses cubic interpolation for smoother transitions.</li>
+      </ul>
+      <li><b>Selected Point Edit</b> (seen in the output in realtime)</li>
+      <ul>
+        <li><b>Amplitude</b> Edits the amplitude of the selected point.</li>
+        <li><b>Phase</b> Edits the phase offset at the selected point.</li>
+      </ul>
+    </ul>
+  </div>
+
+
+  <div class="callout">
+    <b>Beam-steer best practice</b>
+    <p>When tuning a beam steered deflector we recommend the following best practices:</p>
+    <ul>
+      <li>Adjust for peak efficiency: <b>PHASE first</b> and then <b>AMPLITUDE</b>.</li>
+      <li>Aim for maximum deflected optical power <b>without overdrive</b>.</li>
+    </ul>
+  </div>
+
+
+  <p class="muted">
+    Slider wheel steps: normal = 0.1, Ctrl = fine, Shift = coarse (5× page step).
+  </p>
+
+  
+
+  <hr>
+
+  <div class="buttons">
+    <a class="btn" href="help://open?file=tab2_Finding_Bragg.html">Finding Bragg</a>
+    <a class="btn" href="https://isomet.com/synth_home.html">Support</a>
+  </div>
+
+  <!-- Example image usage:
+  <p><img src="images/tuning_sliders.png" alt="Tuning sliders"></p>
+  -->
+</div>
+</body>
+</html>

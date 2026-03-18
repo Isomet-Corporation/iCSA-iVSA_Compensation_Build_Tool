@@ -1,0 +1,84 @@
+:root{
+  --bg: #ffffff;
+  --text: #111;
+  --muted: #666;
+  --card: #f3f5ff;
+  --btn: #111;
+  --btnText: #fff;
+  --border: #e5e7ef;
+}
+
+html, body{
+  margin:0;
+  padding:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.35;
+}
+
+.container{
+  padding: 10px 12px;
+}
+
+h2{
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+p{ margin: 8px 0; }
+
+ul{
+  margin: 8px 0 8px 18px;
+  padding: 0;
+}
+
+li{
+  margin: 6px 0;
+}
+
+.callout{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+
+.muted{
+  color: var(--muted);
+  font-size: 12px;
+}
+
+hr{
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+
+.buttons{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 2px 0;
+}
+
+.btn{
+  display: inline-block;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--btn);
+  color: var(--btnText);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.btn:hover{
+  opacity: 0.85;
+}
+
+img{
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}

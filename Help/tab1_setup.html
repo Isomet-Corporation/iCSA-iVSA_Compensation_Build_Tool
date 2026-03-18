@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Setup / Generate</title>
+  <link rel="stylesheet" href="css/help.css">
+</head>
+<body>
+<div class="container">
+  <h2>Setup / Generate Controls</h2>
+
+  <p>This Tab is used to define the starting parameters for the tuning process.</p>
+
+  <div class="callout">
+    <b>Recommended workflow</b>
+    <ul>
+      <li>Select <b>f_min</b> / <b>f_max</b> for your scan.<i>(see AO Datasheet)</i>
+      <br>For stability, consider adding a guard band around your real scan range <b>(e.g. ±10%)</b>.</li>
+      <li>Choose <b>LUT points</b> to match how many points you will tune manually. <br>(<b>16</b> are usually sufficient)</li>
+      <li>Set <b>Start amplitude</b> is the level of the points in the LUT at generation (edge points are forced to 0%)
+      <br>It is always advisable to set this to start with a relatively low value (e.g. 50%) and increase gradually during tuning.</li>
+      <li>Pick <b>AO model</b> and <b>wavelength</b> to seed theoretical phase (beam-steer).
+      <br>This will help ensure that only small tweaks are needed during tuning.</li>
+      <li>Click <b>Generate starting LUT</b> to populate the tuning table.</li>
+    </ul>
+  </div>
+
+  <div class="buttons">
+    <a class="btn" href="https://isomet.com/synth_home.html">Support</a>
+  </div>
+
+  <!-- <hr> -->
+
+  <!-- <p class="muted">Optional images: put screenshots in <code>help/images/</code> and reference them with <code>&lt;img src="images/..."&gt;</code>.</p> -->
+  <!-- <center><img src="images/Test.png" width="500"></center> -->
+
+</div>
+</body>
+</html>
