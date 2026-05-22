@@ -1,40 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-AO Device Compensation Tool
 
-Update: File-based, per-tab Help overlay (HTML) — NO QtWebEngine required
------------------------------------------------------------------------
-This version:
-- Puts a Help button in a dedicated row **below the tabs** and **above the console** (right-aligned),
-  so it is always visible (proves the core function).
-- Help overlay blocks interaction with the underlying controls.
-- Help content is unique per tab and loaded from external HTML files.
-- HTML can include links/buttons to open other help files INSIDE the same overlay using:
-    help://open?file=tab2_tuning_advanced.html
-
-Update (Interpolation dropdowns + rendered plot):
-- Adds dropdowns on the Tuning tab to select:
-    * Amplitude interpolation style
-    * Phase interpolation style
-  using SDK-backed styles on CompensationFunction:
-    InterpolationStyle_SPOT, STEP, LINEAR, LINEXTEND, BSPLINE
-- The graph now reflects the *rendered* LUT values (table after ApplyFunction + interpolation),
-  with the original control points overlaid.
-
-Uses QTextBrowser (built into PySide6 QtWidgets) so you do NOT need PySide6-QtWebEngine.
-
-Folder structure (next to this script):
-  Compensation_tool.py
-  Isomet.ico
-  help/
-    css/help.css
-    images/ (optional)
-    tab1_setup.html
-    tab2_tuning.html
-    tab2_tuning_advanced.html
-    tab3_store.html
-"""
 
 from __future__ import annotations
 
@@ -77,7 +43,7 @@ def resource_path(relative: str) -> str:
 
 
 # Rendered LUT table size (matches typical device expectation / example LUTs)
-TABLE_RENDER_SIZE = 1024
+TABLE_RENDER_SIZE = 2048
 
 
 # -----------------------------
@@ -1012,12 +978,17 @@ class CompensationTool(QMainWindow):
         if n < 2:
             n = 2
 
-        freqs = [f_min + (f_max - f_min) * (i / (n - 1)) for i in range(n)]
+        if f_max <= f_min:
+            raise ValueError("f_max must be greater than f_min")
 
-        def ampl_at(i: int) -> float:
-            return 0.0 if i == 0 or i == (n - 1) else start_ampl
 
-        phases = [0.0] * n
+        guard_step = (f_max - f_min) / n
+        inner_freqs = [f_min + (f_max - f_min) * (i / (n - 1)) for i in range(n)]
+        freqs = [f_min - guard_step] + inner_freqs + [f_max + guard_step]
+
+        amplitudes = [0.0] + [start_ampl] * n + [0.0]
+
+        phases = [0.0] * len(freqs)
         model_name = self.ao_model.currentText().strip()
         if model_name and model_name.lower() != "none":
             try:
@@ -1027,7 +998,7 @@ class CompensationTool(QMainWindow):
             except Exception as e:
                 self.log.log(f"[LUT] Phase seeding failed: {e}")
 
-        return [LUTPoint(freqs[i], ampl_at(i), phases[i]) for i in range(n)]
+        return [LUTPoint(freqs[i], amplitudes[i], phases[i]) for i in range(len(freqs))]
 
     def _func_add(self, func, spec):
         if hasattr(func, "append"):
@@ -1089,14 +1060,14 @@ class CompensationTool(QMainWindow):
         try:
             last = int(tbl.Size()) - 1
 
-            # preserve whichever feature you didn’t intend to overwrite
+
             p0 = tbl[0]
             pN = tbl[last]
 
             tbl[0] = imslib.CompensationPoint(Percent(pts[0].ampl_pct), Degrees(float(p0.Phase.value)))
             tbl[last] = imslib.CompensationPoint(Percent(pts[-1].ampl_pct), Degrees(float(pN.Phase.value)))
 
-            # If you also want phase endpoints forced:
+
             p0 = tbl[0]
             pN = tbl[last]
             tbl[0] = imslib.CompensationPoint(Percent(float(p0.Amplitude.value)), Degrees(pts[0].phase_deg))
@@ -1118,7 +1089,7 @@ class CompensationTool(QMainWindow):
         try:
             g = self._make_starting_points()
             self.lut_points_global = g
-            self.log.log(f"[LUT] Generated {len(g)} points. start_ampl={self.spin_start_ampl.value():.2f}% interior, edges=0%.")
+            self.log.log(f"[LUT] Generated {len(g)} points: {self.spin_points.value()} user point(s) plus 2 zero-amplitude guard points.")
             self._populate_table_widget()
             self._update_plot()
             QMessageBox.information(self, "LUT", "Proceed to tuning tab.")
@@ -1706,6 +1677,7 @@ class CompensationTool(QMainWindow):
         self.tabs.addTab(tab, "3) Save / Store")
 
     def on_save_lut(self):
+        
         pts = self._active_points()
         if not pts:
             QMessageBox.information(self, "No LUT", "Generate a LUT first.")
@@ -1717,22 +1689,168 @@ class CompensationTool(QMainWindow):
         if not fn:
             return
 
+        def _num(v, default=None):
+            """Convert SDK unit objects/properties to float/int-friendly values."""
+            try:
+                if hasattr(v, "value"):
+                    return float(v.value)
+                if hasattr(v, "Value"):
+                    return float(v.Value)
+                return float(v)
+            except Exception:
+                return default
+
+        def _cap_attr(*names, default=None):
+            candidates = []
+            if self.cap is not None:
+                candidates.append(self.cap)
+            try:
+                if self.synth is not None:
+                    candidates.append(self.synth.GetCap())
+            except Exception:
+                pass
+
+            for obj in candidates:
+                for name in names:
+                    try:
+                        val = getattr(obj, name)
+                        if callable(val):
+                            val = val()
+                        return val
+                    except Exception:
+                        pass
+            return default
+
+        def _rf_channel_count() -> int:
+            val = _cap_attr("Channels", "RFChannels", "NumChannels", default=4)
+            try:
+                return max(1, int(_num(val, 4)))
+            except Exception:
+                return 4
+
+        def _make_export_table(control_pts: List[LUTPoint]) -> imslib.CompensationTable:
+            control_pts = sorted(control_pts, key=lambda p: p.f_mhz)
+            default_pt = imslib.CompensationPoint(Percent(0.0), Degrees(0.0))
+
+            # Preferred path: let the SDK size/range the CompensationTable from the IMS system.
+            # This avoids exporting the smaller plotted/rendered table.
+            tbl = None
+            if self.ims is not None and not isinstance(self.ims, str):
+                try:
+                    tbl = imslib.CompensationTable(self.ims, default_pt)
+                    self.log.log("[Save] Export table created from IMS capabilities.")
+                except Exception as e1:
+                    try:
+                        tbl = imslib.CompensationTable(self.ims)
+                        self.log.log(f"[Save] Export table created from IMS capabilities without default point ({e1}).")
+                    except Exception as e2:
+                        self.log.log(f"[Save] IMS-sized export table unavailable: {e2}")
+                        tbl = None
+
+            # Fallback path: construct from capability properties if the IMS constructor is unavailable.
+            if tbl is None:
+                lut_depth = _cap_attr("LUTDepth", "LutDepth", "lut_depth", default=None)
+                lower = _cap_attr("LowerFreq", "LowerFrequency", "Lower", default=None)
+                upper = _cap_attr("UpperFreq", "UpperFrequency", "Upper", default=None)
+
+                lut_depth_i = None
+                try:
+                    lut_depth_i = int(_num(lut_depth, None))
+                except Exception:
+                    lut_depth_i = None
+
+                lower_f = _num(lower, control_pts[0].f_mhz)
+                upper_f = _num(upper, control_pts[-1].f_mhz)
+
+                if lut_depth_i is not None and lower_f is not None and upper_f is not None:
+                    tbl = imslib.CompensationTable(lut_depth_i, MHz(lower_f), MHz(upper_f), default_pt)
+                    self.log.log(
+                        f"[Save] Export table created from capability fields: "
+                        f"depth/size={lut_depth_i} f=[{lower_f:.6f}..{upper_f:.6f}] MHz"
+                    )
+                else:
+                    self.log.log("[Save] Falling back to current render-table builder for export.")
+                    return self._points_to_table_applyfunction(control_pts)
+
+            amp_func = imslib.CompensationFunction()
+            ph_func = imslib.CompensationFunction()
+
+            try:
+                amp_func.AmplitudeInterpolationStyle = int(self.amp_interp_style)
+            except Exception:
+                pass
+            try:
+                ph_func.PhaseInterpolationStyle = int(self.phase_interp_style)
+            except Exception:
+                pass
+
+            for p in control_pts:
+                self._func_add(
+                    amp_func,
+                    imslib.CompensationPointSpecification(
+                        imslib.CompensationPoint(Percent(p.ampl_pct), Degrees(0.0)),
+                        MHz(p.f_mhz),
+                    ),
+                )
+                self._func_add(
+                    ph_func,
+                    imslib.CompensationPointSpecification(
+                        imslib.CompensationPoint(Percent(0.0), Degrees(p.phase_deg)),
+                        MHz(p.f_mhz),
+                    ),
+                )
+
+            ok_a = tbl.ApplyFunction(
+                amp_func,
+                imslib.CompensationFeature_AMPLITUDE,
+                imslib.CompensationModifier_REPLACE,
+            )
+            try:
+                ok_p = tbl.ApplyFunction(
+                    ph_func,
+                    imslib.CompensationFeature_PHASE,
+                    imslib.CompensationModifier_REPLACE,
+                )
+            except TypeError:
+                ok_p = tbl.ApplyFunction(ph_func, imslib.CompensationFeature_PHASE)
+
+            try:
+                size = int(tbl.Size())
+            except Exception:
+                size = -1
+
+            try:
+                lo = _num(tbl.LowerFrequency())
+                hi = _num(tbl.UpperFrequency())
+                range_txt = f" f=[{lo:.6f}..{hi:.6f}] MHz"
+            except Exception:
+                range_txt = ""
+
+            self.log.log(
+                f"[Save] Built SDK export table: size={size}{range_txt}  "
+                f"ApplyFunction amp={ok_a}, phase={ok_p}"
+            )
+            return tbl
+
         try:
             self.log.log(f"[Save] Export requested: {fn}")
-            tbl = self._points_to_table_applyfunction(sorted(self.lut_points_global, key=lambda p: p.f_mhz))
-            self.log.log(f"[Save] Built global table: size={tbl.Size()}")
+            tbl = _make_export_table(pts)
 
-            ok = False
-            if self.ims is not None:
-                exp = imslib.CompensationTableExporter(self.ims)
-                exp.ProvideGlobalTable(tbl)
-                ok = exp.ExportGlobalLUT(fn)
-                self.log.log(f"[Save] Exporter returned: {ok}")
-            else:
-                ok = bool(tbl.Save(fn))
+            rf_channels = _rf_channel_count()
+            self.log.log(f"[Save] Exporter channel count: {rf_channels}")
+
+            try:
+                exp = imslib.CompensationTableExporter(rf_channels)
+            except Exception as e:
+                self.log.log(f"[Save] CompensationTableExporter({rf_channels}) failed ({e}); using default exporter.")
+                exp = imslib.CompensationTableExporter()
+
+            exp.ProvideGlobalTable(tbl)
+            ok = exp.ExportGlobalLUT(fn)
+            self.log.log(f"[Save] ExportGlobalLUT returned: {ok}")
 
             if not ok:
-                raise RuntimeError("Export returned False")
+                raise RuntimeError("ExportGlobalLUT returned False")
 
             try:
                 sz = os.path.getsize(fn)
